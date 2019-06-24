@@ -6,6 +6,9 @@ import pickle
 import scipy.signal
 import math
 
+import seaborn as sns
+import matplotlib.pyplot as plt
+
 data_dir = "/home/jackie/Downloads/Soundr-Data"
 tracking_file_name = "tracking.pickle"
 sound_file_name = "audio.wav"
@@ -36,6 +39,9 @@ for data_sub_dir in data_sub_dirs:
     if data_sub_dir.startswith(".git"):
         continue
 
+    if data_sub_dir.startswith("_"):
+        continue
+
     data_path = os.path.join(data_dir, data_sub_dir)
 
     tracking_file_path = os.path.join(data_path, tracking_file_name)
@@ -56,15 +62,23 @@ for data_sub_dir in data_sub_dirs:
 
     for i in range(len(tracking_data)):
         audio_range = audio_range_from_tracking(i)
+        if not validate_audio_range(audio_range):
+            print(f"{i} is not validated!")
         if validate_audio_range(audio_range) and tracking_data[i] is not None:
             valid_tracking_data += [tracking_data[i]]
-            data_audio_range = audio_range_from_tracking(i, 0.08)
+            data_audio_range = audio_range_from_tracking(i, 0.16)
             data_audio_start_index, data_audio_end_index = data_audio_range
             audio_slice = audio_data[data_audio_start_index: data_audio_end_index]
             valid_audio_slices += [audio_slice[0::3]]
             audio_start_index, audio_end_index = audio_range
             audio_energy_slice = audio_energy[audio_start_index: audio_end_index]
             valid_audio_energy += [math.log(np.average(audio_energy_slice))]
+            # print(f"{i}: {audio_range}, {data_audio_range}")
+
+    # plt.clf()
+    # valid_tracking_data_np = np.array(valid_tracking_data)
+    # sns.scatterplot(valid_tracking_data_np[:, 0], valid_tracking_data_np[:, 2], linewidth=0)
+    # plt.show()
 
     speaking_tracking_data = []
     speaking_audio_slices = []
@@ -84,8 +98,8 @@ output_data = np.array(output_array)
 
 data = input_data, output_data
 
-with open("train_set.pickle", "wb") as train_set:
-    pickle.dump(data, train_set)
+with open("train_set2.pickle", "wb") as train_set:
+    pickle.dump(data, train_set, protocol=4)
 
 #
 #
