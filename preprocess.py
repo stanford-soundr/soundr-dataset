@@ -9,7 +9,7 @@ import math
 import seaborn as sns
 import matplotlib.pyplot as plt
 
-data_dir = "/home/jackie/Downloads/Soundr-Data"
+data_dir = "/home/soundr-share/Soundr-Data"
 tracking_file_name = "tracking.pickle"
 sound_file_name = "audio.wav"
 
