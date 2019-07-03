@@ -85,7 +85,7 @@ def get_tracking_sample(tracking_data, sample_rate, segment_id):
         return None
 
 
-combined_segments_data = []
+combined_segments_data = [[], []]
 
 for data_sub_dir in data_sub_dirs:
     if data_sub_dir.startswith(".git"):
@@ -115,14 +115,14 @@ for data_sub_dir in data_sub_dirs:
         last_valid = False
 
         for i in range(int(len(audio_mono_data) / (segment_length * audio_sample_rate))):
-            energy_segment = get_audio_segment(audio_energy, audio_sample_rate, i, override_length=0.5)
+            energy_segment = get_audio_segment(audio_energy, audio_sample_rate, i + offset, override_length=0.5)
             if energy_segment is None:
                 energy = 0
             else:
                 energy = math.log(np.average(energy_segment))
             audio_valid = energy > audio_energy_threshold
-            audio_segment = get_audio_segment(audio_energy, audio_sample_rate, i)
-            tracking_sample = get_tracking_sample(tracking_data, tracking_sample_rate, i)
+            audio_segment = get_audio_segment(audio_data, audio_sample_rate, i + offset)
+            tracking_sample = get_tracking_sample(tracking_data, tracking_sample_rate, i + offset)
             valid = audio_valid and audio_segment is not None and tracking_sample is not None
             if valid:
                 if not last_valid:
@@ -131,7 +131,8 @@ for data_sub_dir in data_sub_dirs:
             last_valid = valid
         return segments
 
-    offsets = [0, 0.0333, 0.06666]
+    # offsets = [0, 0.033333, 0.066667]
+    offsets = [0]
 
     segments = [segment for offset in offsets for segment in get_segments(offset)]
 
@@ -141,7 +142,8 @@ for data_sub_dir in data_sub_dirs:
         if len(segment) > 20:
             new_len = len(segment) / math.ceil(len(segment) / 20)
             new_segments = []
-            for start in range(0, len(segment), int(new_len / 2)):
+            # for start in range(0, len(segment), int(new_len / 2)):
+            for start in range(0, len(segment), int(new_len)):
                 end = start + int(new_len)
                 if end > len(segment):
                     break
@@ -157,23 +159,23 @@ for data_sub_dir in data_sub_dirs:
 
     new_segments_length_stat = [len(segment) for segment in processed_segments]
 
-    combined_segments = []
+    combined_segments = [[], []]
 
     for segment in processed_segments:
         input_array = []
         output_array = []
         for data in segment:
-            input_array += [data[1]]
+            input_array += [np.transpose(data[1])]
             output_array += [data[0]]
-        combined_segments += [[np.array(input_array), np.array(output_array)]]
+        combined_segments[0] += [np.array(input_array)]
+        combined_segments[1] += [np.array(output_array)]
 
-    combined_segments_data += combined_segments
+    combined_segments_data[0] += combined_segments[0]
+    combined_segments_data[1] += combined_segments[1]
 
 #%%
 
-combined_segments_data_np = np.array(combined_segments_data)
-
-np.save("train_set3.npy", combined_segments_data_np)
+np.save("/home/soundr-share/train_set3.npy", combined_segments_data)
 
 
 # #%%
