@@ -10,12 +10,14 @@ import quaternion
 import seaborn as sns
 import matplotlib.pyplot as plt
 
+import webrtcvad
+
 data_dir = "/home/soundr-share/Soundr-Data"
 tracking_file_name = "tracking.pickle"
 sound_file_name = "audio.wav"
 
 window_size = 0.3
-
+vad = webrtcvad.Vad(1)
 
 def audio_range_from_tracking(i, temp_window_size=window_size):
     time = i / tracking_sample_rate
@@ -87,6 +89,26 @@ def get_tracking_sample(tracking_data, sample_rate, segment_id):
 
 combined_segments_data = [[], []]
 
+
+def vad_segment_valid(sample_frame: np.array, sample_rate=48000, skip=3):
+    """
+    Detect if audio contains speech
+    :param sample_frame: frame of audio, sample rate 16000, int32 format
+    :param sample_rate: only in 16000, 32000, or 48000 Hz
+    :param skip: sample one in how many frames
+    """
+    vad_valid = False
+    vad_length = int(sample_rate * 0.03)
+    for start in range(0, len(sample_frame), vad_length * skip):
+        if start + 480 > len(sample_frame):
+            start = len(sample_frame) - vad_length
+        end = start + vad_length
+        sub_frame = np.int16(sample_frame[start:end] / 65536 / 8)
+        sub_frame_valid = vad.is_speech(sub_frame.tobytes(), sample_rate)
+        vad_valid = vad_valid or sub_frame_valid
+    return vad_valid
+
+
 for data_sub_dir in data_sub_dirs:
     if data_sub_dir.startswith(".git"):
         continue
@@ -104,8 +126,17 @@ for data_sub_dir in data_sub_dirs:
         tracking_sample_rate = 90
         tracking_data = np.array(pickle.load(tracking_file))
 
+    xs = []
+    zs = []
+    for data in tracking_data:
+        if data is not None:
+            xs += [data[0]]
+            zs += [data[2]]
+    sns.scatterplot(xs, zs)
+    plt.title(data_sub_dir)
+    plt.show()
+
     audio_mono_data = audio_data.sum(axis=1)
-    audio_energy = audio_mono_data ** 2
 
     #%%
     audio_energy_threshold = 38
@@ -115,12 +146,11 @@ for data_sub_dir in data_sub_dirs:
         last_valid = False
 
         for i in range(int(len(audio_mono_data) / (segment_length * audio_sample_rate))):
-            energy_segment = get_audio_segment(audio_energy, audio_sample_rate, i + offset, override_length=0.5)
+            energy_segment = get_audio_segment(audio_mono_data, audio_sample_rate, i + offset, override_length=0.5)
             if energy_segment is None:
-                energy = 0
+                audio_valid = False
             else:
-                energy = math.log(np.average(energy_segment))
-            audio_valid = energy > audio_energy_threshold
+                audio_valid = vad_segment_valid(energy_segment[::3], 16000)
             audio_segment = get_audio_segment(audio_data, audio_sample_rate, i + offset)
             tracking_sample = get_tracking_sample(tracking_data, tracking_sample_rate, i + offset)
             valid = audio_valid and audio_segment is not None and tracking_sample is not None
@@ -154,6 +184,10 @@ for data_sub_dir in data_sub_dirs:
 
 
     segment_length_stat = [len(segment) for segment in segments]
+
+    sns.distplot(segment_length_stat)
+    plt.title(data_sub_dir)
+    plt.show()
 
     processed_segments = [new_segment for segment in segments for new_segment in process_segment(segment)]
 
