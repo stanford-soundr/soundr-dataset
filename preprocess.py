@@ -1,10 +1,12 @@
 # %%
 import scipy.io.wavfile
 import os
+import psutil
 import numpy as np
 import pickle
 import scipy.signal
 import math
+from numpy import array
 import quaternion
 
 import seaborn as sns
@@ -109,7 +111,7 @@ def vad_segment_valid(sample_frame: np.array, sample_rate=48000, skip=3):
     return vad_valid
 
 
-for data_sub_dir in data_sub_dirs:
+for data_sub_dir in data_sub_dirs[0:3]:#choose how many dirs [0:3]
     if data_sub_dir.startswith(".git"):
         continue
 
@@ -163,6 +165,7 @@ for data_sub_dir in data_sub_dirs:
 
     # offsets = [0, 0.033333, 0.066667]
     offsets = [0]
+    offsets = [0]
 
     segments = [segment for offset in offsets for segment in get_segments(offset)]
 
@@ -207,10 +210,19 @@ for data_sub_dir in data_sub_dirs:
     combined_segments_data[0] += combined_segments[0]
     combined_segments_data[1] += combined_segments[1]
 
+    print(f"loop {psutil.virtual_memory()}")
+
 #%%
+csdInput = array(combined_segments_data[0])
+csdOutput = array(combined_segments_data[1])
+#convert to np array
+print(f"pre-save {psutil.virtual_memory()}")
+# np.save("/home/soundr-share/train_set4_example_old.npy", combined_segments_data)
 
-np.save("/home/soundr-share/train_set3.npy", combined_segments_data)
-
+np.save("/home/soundr-share/train_set4_input_small_batch.npy", csdInput)
+np.save("/home/soundr-share/train_set4_output_small_batch.npy", csdOutput)
+print(f"post-save {psutil.virtual_memory()}")
+#convert & save separately
 
 # #%%
 #
