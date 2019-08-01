@@ -14,7 +14,7 @@ import matplotlib.pyplot as plt
 
 import webrtcvad
 
-data_dir = "/home/soundr-share/Soundr-Data"
+data_dir = "/home/soundr-share/Soundr-Data"  # new branch
 tracking_file_name = "tracking.pickle"
 sound_file_name = "audio.wav"
 
