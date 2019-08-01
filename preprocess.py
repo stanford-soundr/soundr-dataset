@@ -15,38 +15,12 @@ import matplotlib.pyplot as plt
 import webrtcvad
 
 data_dir = "/home/soundr-share/Soundr-Data"
-tracking_file_name = "tracking.pickle"  # 7 x 1
-sound_file_name = "audio.wav"  # 8 x 1; last channel unused
+tracking_file_name = "vr_tracking_data.npy"  # 7 x 1
+sound_file_name = "mic_data.npy"  # 8 x 1; last channel unused
 # VR onboard mic data is 1x1
 
-window_size = 0.3
-vad = webrtcvad.Vad(1)
-
-
-def audio_range_from_tracking(i, temp_window_size=window_size):
-    """
-
-    :param i: center index of audio of ith sample
-    :param temp_window_size:
-    :return: range of audio indices of window size
-    """
-    time = i / tracking_sample_rate
-    start_time = time - temp_window_size / 2
-    sample_count = int(temp_window_size * audio_sample_rate)
-    audio_start_index = int(start_time * audio_sample_rate)
-    audio_end_index = sample_count + audio_start_index
-    return audio_start_index, audio_end_index
-
-
-def validate_audio_range(audio_range):
-    """
-    Validates range is within the data
-    :param audio_range:
-    :return:
-    """
-    audio_start_index, audio_end_index = audio_range
-    return audio_start_index >= 0 and audio_end_index < len(audio_data)
-
+window_size = 0.3  # window of each pieced audio segment
+vad = webrtcvad.Vad(1)  # voice activity detection to understand when during the audio someone is actually speaking
 
 data_sub_dirs = os.listdir(data_dir)
 
