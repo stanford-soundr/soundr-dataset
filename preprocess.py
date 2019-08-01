@@ -17,7 +17,7 @@ import webrtcvad
 data_dir = "/home/soundr-share/Soundr-Data"
 tracking_file_name = "vr_tracking_data.npy"  # 7 x 1
 sound_file_name = "mic_data.npy"  # 8 x 1; last channel unused
-# VR onboard mic data is 1x1
+vad_file_name = "vr_audio_data.npy"  # VR onboard mic data is 1x1; use specifically for VAD
 
 window_size = 0.3  # window of each pieced audio segment
 vad = webrtcvad.Vad(1)  # voice activity detection to understand when during the audio someone is actually speaking
@@ -87,21 +87,26 @@ def vad_segment_valid(sample_frame: np.array, sample_rate=48000, skip=3):
 
 
 for data_sub_dir in data_sub_dirs:#choose how many dirs [0:3]
-    if data_sub_dir.startswith(".git"):
+    if data_sub_dir.startswith(".git"):  # omit any git folders
         continue
 
-    if data_sub_dir.startswith("_"):
+    if data_sub_dir.startswith("_"):  # omit selected data folders
         continue
-    data_path = os.path.join(data_dir, data_sub_dir)
 
+    data_path = os.path.join(data_dir, data_sub_dir)  # data path is one specific set of collected data
+
+    # all lead to npy files
     tracking_file_path = os.path.join(data_path, tracking_file_name)
     sound_file_path = os.path.join(data_path, sound_file_name)
+    vad_file_path = os.path.join(data_path, vad_file_name)
 
-    audio_sample_rate, audio_data = scipy.io.wavfile.read(sound_file_path)
-    audio_data = np.delete(audio_data, [7, 15], 1)  # these two channels are empty
-    with open(tracking_file_path, "rb") as tracking_file:
-        tracking_sample_rate = 90
-        tracking_data = np.array(pickle.load(tracking_file))
+    # audio_sample_rate, audio_data = scipy.io.wavfile.read(sound_file_path)
+    AUDIO_SAMPLE_RATE = 48000
+    TRACKING_SAMPLE_RATE = 72
+    audio_data = np.load(sound_file_path)
+    audio_data = np.delete(audio_data, [7], 1)  # this channel is empty
+    tracking_data = np.load(tracking_file_path)
+    vad_data = np.load(vad_file_path)
 
     xs = []
     zs = []
@@ -122,14 +127,14 @@ for data_sub_dir in data_sub_dirs:#choose how many dirs [0:3]
         segments = []
         last_valid = False
 
-        for i in range(int(len(audio_mono_data) / (segment_length * audio_sample_rate))):
-            energy_segment = get_audio_segment(audio_mono_data, audio_sample_rate, i + offset, override_length=0.5)
+        for i in range(int(len(audio_mono_data) / (segment_length * AUDIO_SAMPLE_RATE))):
+            energy_segment = get_audio_segment(audio_mono_data, AUDIO_SAMPLE_RATE, i + offset, override_length=0.5)
             if energy_segment is None:
                 audio_valid = False
             else:
                 audio_valid = vad_segment_valid(energy_segment[::3], 16000)
-            audio_segment = get_audio_segment(audio_data, audio_sample_rate, i + offset)
-            tracking_sample = get_tracking_sample(tracking_data, tracking_sample_rate, i + offset)
+            audio_segment = get_audio_segment(audio_data, AUDIO_SAMPLE_RATE, i + offset)
+            tracking_sample = get_tracking_sample(tracking_data, TRACKING_SAMPLE_RATE, i + offset)
             valid = audio_valid and audio_segment is not None and tracking_sample is not None
             if valid:
                 if not last_valid:
