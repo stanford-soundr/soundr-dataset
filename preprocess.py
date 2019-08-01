@@ -21,7 +21,14 @@ sound_file_name = "audio.wav"
 window_size = 0.3
 vad = webrtcvad.Vad(1)
 
+
 def audio_range_from_tracking(i, temp_window_size=window_size):
+    """
+
+    :param i: center index of audio of ith sample
+    :param temp_window_size:
+    :return: range of audio indices of window size
+    """
     time = i / tracking_sample_rate
     start_time = time - temp_window_size / 2
     sample_count = int(temp_window_size * audio_sample_rate)
@@ -31,6 +38,11 @@ def audio_range_from_tracking(i, temp_window_size=window_size):
 
 
 def validate_audio_range(audio_range):
+    """
+    Validates range is within the data
+    :param audio_range:
+    :return:
+    """
     audio_start_index, audio_end_index = audio_range
     return audio_start_index >= 0 and audio_end_index < len(audio_data)
 
@@ -44,6 +56,14 @@ segment_length = 0.1
 energy_segment_length = 0.3
 
 def get_audio_segment(audio_data, sample_rate, segment_id, override_length=None):
+    """
+    if you ovverride length, segment will still be segmented as original length
+    :param audio_data:
+    :param sample_rate:
+    :param segment_id:
+    :param override_length:
+    :return:
+    """
     start_idx = int(sample_rate * segment_id * segment_length)
     end_idx = int(sample_rate * (segment_id + 1) * segment_length)
 
@@ -111,7 +131,7 @@ def vad_segment_valid(sample_frame: np.array, sample_rate=48000, skip=3):
     return vad_valid
 
 
-for data_sub_dir in data_sub_dirs[0:3]:#choose how many dirs [0:3]
+for data_sub_dir in data_sub_dirs:#choose how many dirs [0:3]
     if data_sub_dir.startswith(".git"):
         continue
 
@@ -123,14 +143,14 @@ for data_sub_dir in data_sub_dirs[0:3]:#choose how many dirs [0:3]
     sound_file_path = os.path.join(data_path, sound_file_name)
 
     audio_sample_rate, audio_data = scipy.io.wavfile.read(sound_file_path)
-    audio_data = np.delete(audio_data, [7, 15], 1)
+    audio_data = np.delete(audio_data, [7, 15], 1)  # these two channels are empty
     with open(tracking_file_path, "rb") as tracking_file:
         tracking_sample_rate = 90
         tracking_data = np.array(pickle.load(tracking_file))
 
     xs = []
     zs = []
-    for data in tracking_data:
+    for data in tracking_data:  # vector with length 7- x,y,z, a,b,c,d
         if data is not None:
             xs += [data[0]]
             zs += [data[2]]
@@ -165,7 +185,6 @@ for data_sub_dir in data_sub_dirs[0:3]:#choose how many dirs [0:3]
 
     # offsets = [0, 0.033333, 0.066667]
     offsets = [0]
-    offsets = [0]
 
     segments = [segment for offset in offsets for segment in get_segments(offset)]
 
@@ -192,6 +211,7 @@ for data_sub_dir in data_sub_dirs[0:3]:#choose how many dirs [0:3]
     plt.title(data_sub_dir)
     plt.show()
 
+    # all old segments less than 20 and then all new segments that are old (>20) segments chopped up
     processed_segments = [new_segment for segment in segments for new_segment in process_segment(segment)]
 
     new_segments_length_stat = [len(segment) for segment in processed_segments]
