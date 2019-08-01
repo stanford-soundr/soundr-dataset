@@ -14,9 +14,10 @@ import matplotlib.pyplot as plt
 
 import webrtcvad
 
-data_dir = "/home/soundr-share/Soundr-Data"  # new branch
-tracking_file_name = "tracking.pickle"
-sound_file_name = "audio.wav"
+data_dir = "/home/soundr-share/Soundr-Data"
+tracking_file_name = "tracking.pickle"  # 7 x 1
+sound_file_name = "audio.wav"  # 8 x 1; last channel unused
+# VR onboard mic data is 1x1
 
 window_size = 0.3
 vad = webrtcvad.Vad(1)
@@ -83,26 +84,6 @@ def get_tracking_sample(tracking_data, sample_rate, segment_id):
         idx = sample_rate * (segment_id + 0.5) * segment_length
         prev_idx = int(math.floor(idx))
         next_idx = int(prev_idx + 1)
-        # if tracking_data[prev_idx] is None:
-        #     prev_idx -= 1
-        #
-        # if tracking_data[next_idx] is None:
-        #     next_idx += 1
-        #
-        # prev_data = tracking_data[prev_idx]
-        # next_data = tracking_data[next_idx]
-        # if prev_data is None or next_data is None:
-        #     return None
-        #
-        # progress = (idx - prev_idx) / (next_idx - prev_idx)
-        # prev_pos = prev_data[0:3]
-        # prev_quat = quaternion.as_quat_array(prev_data[3:7])
-        # next_pos = next_data[0:3]
-        # next_quat = quaternion.as_quat_array(next_data[3:7])
-        # print(progress)
-        # idx_pos = progress * next_pos + (1 - progress) * prev_pos
-        # idx_quat = quaternion.slerp(prev_quat, next_quat, 0, 1, 0.5)
-        # return np.concatenate([idx_pos, quaternion.as_float_array(idx_quat)])
         return tracking_data[prev_idx]
 
     except IndexError:
@@ -243,133 +224,3 @@ np.save("/home/soundr-share/train_set4_input_small_batch.npy", csdInput)
 np.save("/home/soundr-share/train_set4_output_small_batch.npy", csdOutput)
 print(f"post-save {psutil.virtual_memory()}")
 #convert & save separately
-
-# #%%
-#
-#
-# data_frame_raw = []
-#
-#
-#
-# for i in range(0, len(audio_valid), 500):
-#     data_frame_raw += [['valid', i, audio_valid[i] * 1e10]]
-#     data_frame_raw += [['data', i, audio_mono_data[i]]]
-#
-# import pandas as pd
-#
-# data_frame = pd.DataFrame(data_frame_raw, columns=["type", "x", "value"])
-#
-# plt.clf()
-# plt.gcf().set_size_inches(50, 10)
-# sns.lineplot(x="x", y="value", hue="type", data=data_frame)
-# plt.savefig("/tmp/audio.png")
-# #%%
-#
-#
-#
-# valid_tracking_data = []
-# valid_audio_slices = []
-# valid_audio_energy = []
-#
-# # for i in range(len(tracking_data)):
-# for i in range(len(tracking_data)):
-#     audio_range = audio_range_from_tracking(i)
-#     if not validate_audio_range(audio_range):
-#         print(f"{i} is not validated!")
-#     if validate_audio_range(audio_range) and tracking_data[i] is not None:
-#         valid_tracking_data += [tracking_data[i]]
-#         data_audio_range = audio_range_from_tracking(i, 0.16)
-#         data_audio_start_index, data_audio_end_index = data_audio_range
-#         audio_slice = audio_data[data_audio_start_index: data_audio_end_index]
-#         valid_audio_slices += [audio_slice[0::3]]
-#         audio_start_index, audio_end_index = audio_range
-#         audio_energy_slice = audio_energy[audio_start_index: audio_end_index]
-#         valid_audio_energy += [math.log(np.average(audio_energy_slice))]
-#         # print(f"{i}: {audio_range}, {data_audio_range}")
-#
-# # plt.clf()
-# # valid_tracking_data_np = np.array(valid_tracking_data)
-# # sns.scatterplot(valid_tracking_data_np[:, 0], valid_tracking_data_np[:, 2], linewidth=0)
-# # plt.show()
-#
-# speaking_tracking_data = []
-# speaking_audio_slices = []
-# speaking_audio_energy = []
-#
-# for i in range(len(valid_tracking_data)):
-#     if valid_audio_energy[i] > 39:
-#         speaking_tracking_data += [valid_tracking_data[i]]
-#         speaking_audio_slices += [valid_audio_slices[i]]
-#         speaking_audio_energy += [valid_audio_energy[i]]
-#
-# input_array += speaking_audio_slices
-# output_array += speaking_tracking_data
-#
-# input_data = np.array(input_array)
-# output_data = np.array(output_array)
-#
-# data = input_data, output_data
-#
-# with open("train_set2.pickle", "wb") as train_set:
-#     pickle.dump(data, train_set, protocol=4)
-
-#
-#
-# def rolling_avg(data, window):
-#    return np.convolve(audio_energy, scipy.signal.gaussian(window, window), 'same') / window
-#
-# # # %%
-# # import seaborn as sns
-# # import matplotlib.pyplot as plt
-# plt.interactive(True)
-#
-# plt.cla()
-# plt.clf()
-# plt.figure(figsize=(100,10))
-# plt.plot(valid_audio_energy)
-# plt.show()
-# plt.close()
-#
-# # %%
-# import math
-#
-# threshold = math.e ** 39.5
-#
-# audio_speaking = np.greater(avg_audio_energy, threshold).astype(float)
-# avg_audio_speaking = np.convolve(audio_speaking, np.ones(540), 'same') / 540
-#
-# # %%
-# import seaborn as sns
-# import matplotlib.pyplot as plt
-# plt.interactive(True)
-#
-# plt.cla()
-# plt.clf()
-# plt.figure(figsize=(100,10))
-# plt.plot(avg_audio_speaking.astype(int))
-# plt.show()
-# plt.close()
-#
-#
-# #%%
-#
-# plt.cla()
-# plt.clf()
-# plt.figure(figsize=(100,10))
-# plt.plot(np.log(avg_audio_energy))
-# plt.show()
-# plt.close()
-#
-# #%%
-# plt.cla()
-# plt.clf()
-# plt.figure(figsize=(100,10))
-# plt.plot(scipy.signal.gaussian(30000, 15000))
-# plt.show()
-# plt.close()
-#
-# # %%
-#
-# plt.clf()
-# sns.distplot(speaking_audio_energy)
-# plt.show()
