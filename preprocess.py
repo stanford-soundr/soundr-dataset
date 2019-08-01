@@ -118,10 +118,10 @@ for data_sub_dir in data_sub_dirs:#choose how many dirs [0:3]
     plt.title(data_sub_dir)
     plt.show()
 
-    audio_mono_data = audio_data.sum(axis=1)
+    audio_mono_data = vad_data  # maybe misaligned; using onboard vr mic data for thresholding instead of normal mic
 
     #%%
-    audio_energy_threshold = 38
+    AUDIO_ENERGY_THRESHOLD = 38
 
     def get_segments(offset = 0):
         segments = []
