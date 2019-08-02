@@ -1,23 +1,20 @@
 # %%
-import scipy.io.wavfile
 import os
 import psutil
 import numpy as np
-import pickle
-import scipy.signal
 import math
 from numpy import array
-import quaternion
 
 import seaborn as sns
 import matplotlib.pyplot as plt
 
 import webrtcvad
 
-data_dir = "/home/soundr-share/Soundr-Data"
+data_dir = "/home/soundr-share/Soundr-Data-2"
 tracking_file_name = "vr_tracking_data.npy"  # 7 x 1
 sound_file_name = "mic_data.npy"  # 8 x 1; last channel unused
 vad_file_name = "vr_audio_data.npy"  # VR onboard mic data is 1x1; use specifically for VAD
+offset_file_name = "offset.npy"
 
 window_size = 0.3  # window of each pieced audio segment
 vad = webrtcvad.Vad(1)  # voice activity detection to understand when during the audio someone is actually speaking
@@ -30,17 +27,20 @@ output_array = []
 segment_length = 0.1
 energy_segment_length = 0.3
 
-def get_audio_segment(audio_data, sample_rate, segment_id, override_length=None):
+
+def get_audio_segment(audio_datas, sample_rate, segment_id, offset_rate, override_length=None):
     """
     if you ovverride length, segment will still be segmented as original length
-    :param audio_data:
+    :rtype: object
+    :param offset_rate:
+    :param audio_datas:
     :param sample_rate:
     :param segment_id:
     :param override_length:
     :return:
     """
-    start_idx = int(sample_rate * segment_id * segment_length)
-    end_idx = int(sample_rate * (segment_id + 1) * segment_length)
+    start_idx = int(sample_rate * segment_id * segment_length * offset_rate)
+    end_idx = start_idx + int(sample_rate * segment_length)
 
     if override_length is not None:
         new_start_idx = int((start_idx + end_idx - sample_rate * override_length) / 2)
@@ -48,17 +48,18 @@ def get_audio_segment(audio_data, sample_rate, segment_id, override_length=None)
         start_idx = new_start_idx
         end_idx = new_end_idx
 
-    if start_idx >= 0 and end_idx < len(audio_data):
-        return audio_data[start_idx: end_idx]
+    if start_idx >= 0 and end_idx < len(audio_datas):
+        return audio_datas[start_idx: end_idx]
     else:
         return None
 
-def get_tracking_sample(tracking_data, sample_rate, segment_id):
+
+def get_tracking_sample(tracking_datas, sample_rate, segment_id, offset_rate):
     try:
-        idx = sample_rate * (segment_id + 0.5) * segment_length
+        idx = sample_rate * (segment_id + 0.5) * segment_length * offset_rate
         prev_idx = int(math.floor(idx))
-        next_idx = int(prev_idx + 1)
-        return tracking_data[prev_idx]
+        # next_idx = int(prev_idx + 1)
+        return tracking_datas[prev_idx]
 
     except IndexError:
         return None
@@ -80,13 +81,13 @@ def vad_segment_valid(sample_frame: np.array, sample_rate=48000, skip=3):
         if start + 480 > len(sample_frame):
             start = len(sample_frame) - vad_length
         end = start + vad_length
-        sub_frame = np.int16(sample_frame[start:end] / 65536 / 8)
+        sub_frame = np.int16(sample_frame[start:end] * (2 ** 15))
         sub_frame_valid = vad.is_speech(sub_frame.tobytes(), sample_rate)
         vad_valid = vad_valid or sub_frame_valid
     return vad_valid
 
 
-for data_sub_dir in data_sub_dirs:#choose how many dirs [0:3]
+for data_sub_dir in data_sub_dirs:  # choose how many dirs [0:3]
     if data_sub_dir.startswith(".git"):  # omit any git folders
         continue
 
@@ -99,6 +100,7 @@ for data_sub_dir in data_sub_dirs:#choose how many dirs [0:3]
     tracking_file_path = os.path.join(data_path, tracking_file_name)
     sound_file_path = os.path.join(data_path, sound_file_name)
     vad_file_path = os.path.join(data_path, vad_file_name)
+    offset_file_path = os.path.join(data_path, offset_file_name)
 
     # audio_sample_rate, audio_data = scipy.io.wavfile.read(sound_file_path)
     AUDIO_SAMPLE_RATE = 48000
@@ -107,6 +109,11 @@ for data_sub_dir in data_sub_dirs:#choose how many dirs [0:3]
     audio_data = np.delete(audio_data, [7], 1)  # this channel is empty
     tracking_data = np.load(tracking_file_path)
     vad_data = np.load(vad_file_path)
+    offsets = np.load(offset_file_path)
+
+    data_length = np.array([vad_data.shape[0], audio_data.shape[0], tracking_data.shape[0]])
+
+    offset_rates = data_length / (offsets.astype(float) + data_length)
 
     xs = []
     zs = []
@@ -120,35 +127,45 @@ for data_sub_dir in data_sub_dirs:#choose how many dirs [0:3]
 
     audio_mono_data = vad_data  # maybe misaligned; using onboard vr mic data for thresholding instead of normal mic
 
-    #%%
+    # %%
     AUDIO_ENERGY_THRESHOLD = 38
 
-    def get_segments(offset = 0):
-        segments = []
+
+    def get_segments(offset, offset_rates_param):
+        segments_internal = []
         last_valid = False
 
         for i in range(int(len(audio_mono_data) / (segment_length * AUDIO_SAMPLE_RATE))):
-            energy_segment = get_audio_segment(audio_mono_data, AUDIO_SAMPLE_RATE, i + offset, override_length=0.5)
+            energy_segment = get_audio_segment(
+                audio_mono_data,
+                AUDIO_SAMPLE_RATE,
+                i + offset,
+                offset_rates_param[0],
+                override_length=0.5
+            )
             if energy_segment is None:
                 audio_valid = False
             else:
                 audio_valid = vad_segment_valid(energy_segment[::3], 16000)
-            audio_segment = get_audio_segment(audio_data, AUDIO_SAMPLE_RATE, i + offset)
-            tracking_sample = get_tracking_sample(tracking_data, TRACKING_SAMPLE_RATE, i + offset)
+            audio_segment = get_audio_segment(audio_data, AUDIO_SAMPLE_RATE, i + offset, offset_rates_param[1])
+            tracking_sample = \
+                get_tracking_sample(tracking_data, TRACKING_SAMPLE_RATE, i + offset, offset_rates_param[2])
             valid = audio_valid and audio_segment is not None and tracking_sample is not None
             if valid:
                 if not last_valid:
-                    segments += [[]]
-                segments[len(segments) - 1] += [(tracking_sample, audio_segment)]
+                    segments_internal += [[]]
+                segments_internal[len(segments_internal) - 1] += [(tracking_sample, audio_segment)]
             last_valid = valid
-        return segments
+        return segments_internal
+
 
     # offsets = [0, 0.033333, 0.066667]
-    offsets = [0]
+    start_offsets = [0]
 
-    segments = [segment for offset in offsets for segment in get_segments(offset)]
+    segments = [segment for start_offset in start_offsets for segment in get_segments(start_offset, offset_rates)]
 
     segment_long_threshold = 20
+
 
     def process_segment(segment):
         if len(segment) > 20:
@@ -192,14 +209,14 @@ for data_sub_dir in data_sub_dirs:#choose how many dirs [0:3]
 
     print(f"loop {psutil.virtual_memory()}")
 
-#%%
+# %%
 csdInput = array(combined_segments_data[0])
 csdOutput = array(combined_segments_data[1])
-#convert to np array
+# convert to np array
 print(f"pre-save {psutil.virtual_memory()}")
 # np.save("/home/soundr-share/train_set4_example_old.npy", combined_segments_data)
 
-np.save("/home/soundr-share/train_set4_input_small_batch.npy", csdInput)
-np.save("/home/soundr-share/train_set4_output_small_batch.npy", csdOutput)
+np.save("/home/soundr-share/train_set10_input.npy", csdInput)
+np.save("/home/soundr-share/train_set10_output.npy", csdOutput)
 print(f"post-save {psutil.virtual_memory()}")
-#convert & save separately
+# convert & save separately
