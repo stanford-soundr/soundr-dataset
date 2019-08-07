@@ -17,7 +17,7 @@ vad_file_name = "vr_audio_data.npy"  # VR onboard mic data is 1x1; use specifica
 offset_file_name = "offset.npy"
 
 window_size = 0.3  # window of each pieced audio segment
-vad = webrtcvad.Vad(1)  # voice activity detection to understand when during the audio someone is actually speaking
+vad = webrtcvad.Vad(0)  # voice activity detection to understand when during the audio someone is actually speaking
 
 data_sub_dirs = os.listdir(data_dir)
 
@@ -81,7 +81,7 @@ def vad_segment_valid(sample_frame: np.array, sample_rate=48000, skip=3):
         if start + 480 > len(sample_frame):
             start = len(sample_frame) - vad_length
         end = start + vad_length
-        sub_frame = np.int16(sample_frame[start:end] * (2 ** 15))
+        sub_frame = np.int16(sample_frame[start:end] * (2 ** 15) * 6)
         sub_frame_valid = vad.is_speech(sub_frame.tobytes(), sample_rate)
         vad_valid = vad_valid or sub_frame_valid
     return vad_valid
@@ -108,8 +108,17 @@ for data_sub_dir in data_sub_dirs:  # choose how many dirs [0:3]
     audio_data = np.load(sound_file_path)
     audio_data = np.delete(audio_data, [7], 1)  # this channel is empty
     tracking_data = np.load(tracking_file_path)
+    tracking_data = np.delete(tracking_data, [0], 1)
     vad_data = np.load(vad_file_path)
-    offsets = np.load(offset_file_path)
+    try:
+        offsets = np.load(offset_file_path)
+    except FileNotFoundError:
+        print(f"File not exist, replacing with default: {offset_file_path}")
+        vad_offset = 0
+        audio_offset = -9860
+        tracking_offset = tracking_data.shape[0] * 0.0025
+        offsets = np.array([vad_offset, audio_offset, tracking_offset])
+
 
     data_length = np.array([vad_data.shape[0], audio_data.shape[0], tracking_data.shape[0]])
 
@@ -140,13 +149,15 @@ for data_sub_dir in data_sub_dirs:  # choose how many dirs [0:3]
                 audio_mono_data,
                 AUDIO_SAMPLE_RATE,
                 i + offset,
-                offset_rates_param[0],
+                offset_rates_param[1],
                 override_length=0.5
             )
+
             if energy_segment is None:
                 audio_valid = False
             else:
                 audio_valid = vad_segment_valid(energy_segment[::3], 16000)
+
             audio_segment = get_audio_segment(audio_data, AUDIO_SAMPLE_RATE, i + offset, offset_rates_param[1])
             tracking_sample = \
                 get_tracking_sample(tracking_data, TRACKING_SAMPLE_RATE, i + offset, offset_rates_param[2])
