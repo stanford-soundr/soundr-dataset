@@ -109,6 +109,13 @@ for data_sub_dir in data_sub_dirs:  # choose how many dirs [0:3]
     audio_data = np.delete(audio_data, [7], 1)  # this channel is empty
     tracking_data = np.load(tracking_file_path)
     tracking_data = np.delete(tracking_data, [0], 1)
+
+    track_xyz = np.delete(tracking_data, [3, 4, 5, 6], 1)
+    track_q_xyz = np.delete(tracking_data, [0, 1, 2, 6], 1)
+    track_q_w = np.delete(tracking_data, [0, 1, 2, 3, 4, 5], 1)
+    tracking_data = np.concatenate((track_xyz, track_q_w, track_q_xyz), axis=1)
+
+
     vad_data = np.load(vad_file_path)
     try:
         offsets = np.load(offset_file_path)
