@@ -110,11 +110,13 @@ for data_sub_dir in data_sub_dirs:  # choose how many dirs [0:3]
     tracking_data = np.load(tracking_file_path)
     tracking_data = np.delete(tracking_data, [0], 1)
 
-    track_xyz = np.delete(tracking_data, [3, 4, 5, 6], 1)
-    track_q_xyz = np.delete(tracking_data, [0, 1, 2, 6], 1)
-    track_q_w = np.delete(tracking_data, [0, 1, 2, 3, 4, 5], 1)
+    track_xyz = tracking_data[:, 0:3]
+    track_q_xyz = tracking_data[:, 3:6]
+    track_q_w = tracking_data[:, 6]
+    # track_xyz = np.delete(tracking_data, [3, 4, 5, 6], 1)
+    # track_q_xyz = np.delete(tracking_data, [0, 1, 2, 6], 1)
+    # track_q_w = np.delete(tracking_data, [0, 1, 2, 3, 4, 5], 1)
     tracking_data = np.concatenate((track_xyz, track_q_w, track_q_xyz), axis=1)
-
 
     vad_data = np.load(vad_file_path)
     try:
@@ -234,7 +236,7 @@ csdOutput = array(combined_segments_data[1])
 print(f"pre-save {psutil.virtual_memory()}")
 # np.save("/home/soundr-share/train_set4_example_old.npy", combined_segments_data)
 
-np.save("/home/soundr-share/train_set10_input.npy", csdInput)
-np.save("/home/soundr-share/train_set10_output.npy", csdOutput)
+np.save("/home/soundr-share/train_set11_input.npy", csdInput)
+np.save("/home/soundr-share/train_set11_output.npy", csdOutput)
 print(f"post-save {psutil.virtual_memory()}")
 # convert & save separately
