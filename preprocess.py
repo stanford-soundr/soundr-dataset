@@ -125,10 +125,11 @@ for data_sub_dir in data_sub_dirs:  # choose how many dirs [0:3]
         tracking_offset = tracking_data.shape[0] * 0.0025
         offsets = np.array([vad_offset, audio_offset, tracking_offset])
 
-
     data_length = np.array([vad_data.shape[0], audio_data.shape[0], tracking_data.shape[0]])
 
     offset_rates = data_length / (offsets.astype(float) + data_length)
+
+    print(f"{offset_rates}: path \"{offset_file_path}\"")
 
     xs = []
     zs = []
@@ -140,7 +141,7 @@ for data_sub_dir in data_sub_dirs:  # choose how many dirs [0:3]
     plt.title(data_sub_dir)
     plt.show()
 
-    audio_mono_data = audio_data.sum(axis=1)  # vad_data; maybe misaligned; using onboard vr mic data for thresholding instead of normal mic
+    audio_mono_data = audio_data.sum(axis=1)
 
     # %%
     AUDIO_ENERGY_THRESHOLD = 38
@@ -156,7 +157,7 @@ for data_sub_dir in data_sub_dirs:  # choose how many dirs [0:3]
                 AUDIO_SAMPLE_RATE,
                 i + offset,
                 offset_rates_param[1],
-                override_length=0.5
+                override_length=energy_segment_length
             )
 
             if energy_segment is None:
@@ -233,7 +234,7 @@ csdOutput = array(combined_segments_data[1])
 print(f"pre-save {psutil.virtual_memory()}")
 # np.save("/home/soundr-share/train_set4_example_old.npy", combined_segments_data)
 
-np.save("/home/soundr-share/train_set11_input.npy", csdInput)
-np.save("/home/soundr-share/train_set11_output.npy", csdOutput)
+np.save("/home/soundr-share/train_set12_input.npy", csdInput)
+np.save("/home/soundr-share/train_set12_output.npy", csdOutput)
 print(f"post-save {psutil.virtual_memory()}")
 # convert & save separately
