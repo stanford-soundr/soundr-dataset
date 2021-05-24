@@ -1,4 +1,5 @@
 # %%
+import argparse
 import os
 import psutil
 import numpy as np
@@ -10,7 +11,12 @@ import matplotlib.pyplot as plt
 
 import webrtcvad
 
-data_dir = "/home/soundr-share/Soundr-Data-2"
+parser = argparse.ArgumentParser(description='Process Soundr training data')
+parser.add_argument('data_dir', type=str, help='path to data dir')
+parser.add_argument('--output', type=str, help='output path')
+args = parser.parse_args()
+
+data_dir = args.data_dir
 tracking_file_name = "vr_tracking_data.npy"  # 7 x 1
 sound_file_name = "mic_data.npy"  # 8 x 1; last channel unused
 vad_file_name = "vr_audio_data.npy"  # VR onboard mic data is 1x1; use specifically for VAD
@@ -95,6 +101,11 @@ for data_sub_dir in data_sub_dirs:  # choose how many dirs [0:3]
         continue
 
     data_path = os.path.join(data_dir, data_sub_dir)  # data path is one specific set of collected data
+    if os.path.isfile(data_path):
+        print(data_path + " is a file, skip")
+        continue
+    data_path = os.path.join(data_path, data_sub_dir)
+    print("processing " + data_path)
 
     # all lead to npy files
     tracking_file_path = os.path.join(data_path, tracking_file_name)
@@ -137,9 +148,9 @@ for data_sub_dir in data_sub_dirs:  # choose how many dirs [0:3]
         if data is not None:
             xs += [data[0]]
             zs += [data[2]]
-    sns.scatterplot(xs, zs)
-    plt.title(data_sub_dir)
-    plt.show()
+    # sns.scatterplot(xs, zs)
+    # plt.title(data_sub_dir)
+    # plt.show()
 
     audio_mono_data = audio_data.sum(axis=1)
 
@@ -202,9 +213,9 @@ for data_sub_dir in data_sub_dirs:  # choose how many dirs [0:3]
 
     segment_length_stat = [len(segment) for segment in segments]
 
-    sns.distplot(segment_length_stat)
-    plt.title(data_sub_dir)
-    plt.show()
+    # sns.distplot(segment_length_stat)
+    # plt.title(data_sub_dir)
+    # plt.show()
 
     # all old segments less than 20 and then all new segments that are old (>20) segments chopped up
     processed_segments = [new_segment for segment in segments for new_segment in process_segment(segment)]
@@ -234,7 +245,7 @@ csdOutput = array(combined_segments_data[1])
 print(f"pre-save {psutil.virtual_memory()}")
 # np.save("/home/soundr-share/train_set4_example_old.npy", combined_segments_data)
 
-np.save("/home/soundr-share/train_set12_input.npy", csdInput)
-np.save("/home/soundr-share/train_set12_output.npy", csdOutput)
+np.save(f"{args.output}/train_set12_input.npy", csdInput)
+np.save(f"{args.output}/train_set12_output.npy", csdOutput)
 print(f"post-save {psutil.virtual_memory()}")
 # convert & save separately
